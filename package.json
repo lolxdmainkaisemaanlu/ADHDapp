@@ -1,0 +1,12 @@
+{
+  "name": "adhdapp-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Client and server setup with shared TypeScript types",
+  "license": "MIT",
+  "workspaces": ["client", "server"],
+  "scripts": {
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write ."
+  }
+}
