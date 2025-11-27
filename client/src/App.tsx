@@ -5,11 +5,14 @@ import type {
   AuthTokens,
   ClientInfo,
   HealthStatus,
+  SessionCategory,
+  SessionStatus,
   TaskItem,
   TimerEntry
 } from '@shared/types';
 import { loadOfflinePreference, saveOfflinePreference } from './storage';
 import { SyncService } from './syncService';
+import FocusTimer from './components/FocusTimer';
 
 const clientInfo: ClientInfo = {
   name: 'ADHD App Client',
@@ -116,6 +119,20 @@ function App() {
     }
   };
 
+  const logSession = (
+    entry: Omit<TimerEntry, 'id'> & { category?: SessionCategory; status?: SessionStatus; label?: string }
+  ) => {
+    const completeEntry: TimerEntry = {
+      id: buildId(),
+      ...entry,
+      durationMs: Math.max(entry.durationMs, 1000),
+      startedAt: entry.startedAt ?? new Date().toISOString(),
+      completedAt: entry.completedAt ?? new Date().toISOString()
+    };
+
+    void persistAndSync(tasks, [completeEntry, ...timers]);
+  };
+
   const handleAuth = async (path: 'register' | 'login', payload: AuthRequest) => {
     setAuthMessage('');
     try {
@@ -187,18 +204,15 @@ function App() {
 
   const addTimerEntry = () => {
     const durationMs = Math.max(1, timerMinutes) * 60 * 1000;
-    const now = new Date().toISOString();
-    const nextTimers: TimerEntry[] = [
-      {
-        id: buildId(),
-        durationMs,
-        startedAt: now,
-        completedAt: new Date(Date.now() + durationMs).toISOString()
-      },
-      ...timers
-    ];
-
-    void persistAndSync(tasks, nextTimers);
+    const now = new Date();
+    logSession({
+      durationMs,
+      startedAt: now.toISOString(),
+      completedAt: new Date(now.getTime() + durationMs).toISOString(),
+      category: 'focus',
+      status: 'completed',
+      label: 'Quick manual log'
+    });
   };
 
   const continueOffline = () => {
@@ -295,6 +309,8 @@ function App() {
             ))}
           </ul>
 
+          <FocusTimer onLogSession={logSession} />
+
           <div className="rounded-lg border border-slate-800 bg-slate-900/80 px-4 py-3">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:gap-4">
               <div className="flex-1">
@@ -321,13 +337,21 @@ function App() {
 
             <div className="mt-3 space-y-2">
               {timers.length === 0 && (
-                <p className="text-sm text-slate-400">Timers are saved in IndexedDB so you can track focus time offline.</p>
+                <p className="text-sm text-slate-400">
+                  Session logs are saved in IndexedDB so you can track focus time offline and sync when you reconnect.
+                </p>
               )}
-              {timers.slice(0, 4).map((timer) => (
+              {timers.slice(0, 5).map((timer) => (
                 <div key={timer.id} className="rounded-md bg-slate-800/80 px-3 py-2 text-sm">
-                  <p className="text-slate-100">Session: {(timer.durationMs / 60000).toFixed(0)} min</p>
+                  <p className="text-slate-100">
+                    {timer.label ?? 'Session'} • {timer.category ? timer.category.replace('-', ' ') : 'focus'}
+                  </p>
                   <p className="text-xs text-slate-400">
-                    Started {new Date(timer.startedAt).toLocaleString()} • Ends {timer.completedAt && new Date(timer.completedAt).toLocaleTimeString()}
+                    Duration: {(timer.durationMs / 60000).toFixed(0)} min • Status: {timer.status ?? 'completed'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Started {new Date(timer.startedAt).toLocaleString()} •{' '}
+                    {timer.completedAt ? `Ended ${new Date(timer.completedAt).toLocaleTimeString()}` : 'In progress'}
                   </p>
                 </div>
               ))}
