@@ -54,12 +54,18 @@ export interface TaskItem {
   updatedAt: string;
 }
 
+export type SessionCategory = 'focus' | 'short-break' | 'long-break';
+export type SessionStatus = 'completed' | 'cancelled';
+
 export interface TimerEntry {
   id: string;
   taskId?: string;
   durationMs: number;
   startedAt: string;
   completedAt?: string;
+  category?: SessionCategory;
+  status?: SessionStatus;
+  label?: string;
 }
 
 export interface SyncPayload {
